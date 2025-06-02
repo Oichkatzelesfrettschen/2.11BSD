@@ -379,7 +379,7 @@ register WORD	rbits;	/* relocation bits */
 /************************  relwrite  ****************************************/
 
 
-void relwrite(value, rbits)	/* write value in out file relative to
+void relwrite(value, rbits)	/* write value in out file relative to 
 			** global location counter */
 register WORD	value;
 register WORD	rbits;
