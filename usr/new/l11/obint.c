@@ -1,12 +1,34 @@
 /*   Object File Interpreter  */
 
-#define	WORD	unsigned int
-char *tack();
-WORD getword();
+// WORD is defined in link.h
+// char *tack(); // Forward declaration, definition should be in a linked .o file or std lib
+// WORD getword(); // Declared in link.h
 
 # include	<stdio.h>
+# include	"link.h"	// For WORD definition and other types
+# include	<stdlib.h>	// For exit()
+# include	<string.h>	// For strcpy(), strcat(), sprintf()
 
-main(argc, argv)
+// Forward declarations for functions presumably in other .c files of this module
+// char *tack(); // Declared in link.h
+char *pstring(int attr);
+char *gsstring(int attr);
+char *lsstring(int attr);
+// void dc_symbol(char *sname); // Declared in link.h
+void regcheck(char *s);      // Assuming void for now, or define in link.h
+void vrdirect(char *s, WORD drctv); // WORD from link.h
+void do040(void); // Changed to void, needs to match definition if it's in pass2.c
+char getreg(void); // Changed to void, needs to match definition
+// void bail_out(); // Declared in link.h
+
+// From in.c (or similar) - ensure these are declared before use if not in a common header
+// void ch_input(char *fname, int newmod); // Declared in link.h
+// int morebytes(); // Declared in link.h
+// int getbyte(); // Declared in link.h
+// WORD getword(); // Declared in link.h
+
+
+int main(argc, argv) // Added int
 int	argc;
 char	*argv[];
 
@@ -29,9 +51,10 @@ char	*argv[];
 		code(filename);
 		lst(filename);
 	}
+	return 0; // Added return
 }
 
-gsd(fname)
+void gsd(fname) // Added void
 char	*fname;
 {
 	char	sname[7];	/* symbol name */
@@ -91,7 +114,7 @@ char	*fname;
 	}
 }
 
-code(fname)
+void code(fname) // Added void
 char 	*fname;
 {
 	char		sname[7];	/* symbol name buffer */
@@ -100,8 +123,8 @@ char 	*fname;
 	int		drctv;		/* code directive */
 	int		i;
 	int		temp;		/* possible virtual register directive */
-	int		getbyte();	/* returns byte from checksum buffer */
-	WORD	getword();	/* returns word from checksum buffer */
+	// int		getbyte();	// Forward declared in link.h
+	// WORD	getword();	// Forward declared in link.h
 
 	printf("\n\nCode and Directives:\n\n");
 	ch_input(fname, 017);
@@ -239,7 +262,7 @@ char 	*fname;
 }
 
 
-lst(fname)	/* local symbol table dump */
+void lst(fname)	/* local symbol table dump */ // Added void
 char	*fname;
 {
 	char	sname[7];
@@ -291,7 +314,7 @@ int	attr;
 }
 
 
-regcheck(s)	/* checks to see if the string is suppossed to */
+void regcheck(s)	/* checks to see if the string is suppossed to */ // Added void
 		/* represent a register rather than a symbol, */
 		/* if so it adds "reg." to the string */
 char	*s;
@@ -305,7 +328,7 @@ char	*s;
 }
 
 
-vrdirect(s, drctv)		/* print virtual register directive */
+void vrdirect(s, drctv)		/* print virtual register directive */ // Added void
 char	 	*s;		/* string argument to directive */
 WORD drctv;	/* the directive */
 {
@@ -349,7 +372,7 @@ WORD drctv;	/* the directive */
 }
 
 
-do040()		/* 040 is used for misc. directives to virtual registers */
+void do040(void)		/* 040 is used for misc. directives to virtual registers */ // Added void parameter
 
 {
 	int	drctv;		/* the drctv */
@@ -391,7 +414,7 @@ do040()		/* 040 is used for misc. directives to virtual registers */
 }
 
 
-char	getreg()	/* reads a byte to determine register character */
+char	getreg(void)	/* reads a byte to determine register character */ // Added void parameter
 
 {
 	return('A' + getbyte() - 1);
@@ -448,7 +471,7 @@ int	attr;
 /***********************  bail_out  ****************************************/
 
 
-bail_out()
-{
-	exit();
-}
+// void bail_out() // Declared in link.h
+// {
+// 	exit(1);
+// }

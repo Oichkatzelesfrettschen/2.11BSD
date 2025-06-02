@@ -1,10 +1,11 @@
 # include	<stdio.h>
 #ifdef vax
 #define WORD	unsigned short
-#endif vax
-#ifdef pdp11
-#define WORD	unsigned 
-#endif pdp11
+#elif defined(pdp11)
+#define WORD	unsigned
+#else
+#define WORD unsigned short
+#endif /* vax, pdp11 */
 
 /********************* structure declarations *************************/
 
@@ -115,3 +116,89 @@ struct g_sect		/* structure for global program section tree */
 # define	iscon(x)	(((x)->type & OVR) == 0)
 # define	isdef(x)	(((x)->type & DEF) != 0)
 # define	isudf(x)	(((x)->type & DEF) == 0)
+
+// Forward declarations for l11 module
+
+// From in.c
+WORD getword(); // To match definition WORD getword() in in.c
+void dc_symbol(char *sname); // Defined in sup.c, used by in.c, pass2.c, obint.c
+void ch_input(char *newfile, int newmod);
+int morebytes();
+int getbyte();
+void inerror(char *mess);
+int read_mod(void); // Added (void)
+int getb();
+
+// From link.c (many of these are called by main in link.c)
+void scanargs(int argc, char *argv[]);
+void pass1(void);
+void relocate(void);
+void relsyms(struct symbol *sym);
+void post_bail(void);
+void printmap(void);
+void warmup(void); // Calls functions in pass2.c
+void pass2(void);  // Calls functions in pass2.c
+void loose_ends(void); // Calls functions in pass2.c
+void outnames(void);
+void strip(char *name, char *suffix); // Changed to void to match sup.c definition
+void place_global(struct psect *ps);
+void place_local(struct psect *ps);
+void table(struct symbol **root, struct symbol *new);
+void asgn_rcs(struct psect *p);
+void get_rc(struct outword *wbuff, struct objfile *obj, char *psname); // Used in pass2.c from link.c context
+void brag(char *s, long start, long size, char *tag);
+void prattr(int x);
+void dump_symlist(struct symbol *sym);
+int dump_undefs(struct symbol *sym, int n);
+void attr(int x, char *s, char *t);
+void sigx(int n);
+struct objfile *newfile(void);
+struct psect *newpsect(void);
+struct symbol *newsymbol(void);
+struct g_sect *new_gsect(void);
+
+// From sup.c (already listed some like dc_symbol, strip)
+void lerror(char *mess);
+void uerror(char *mess); // Used in link.c, pass2.c
+void bail_out(void);
+char *lalloc(int nbytes);
+char *tack(char *s1, char *s2);
+
+// From pass2.c (if any are called externally, e.g. by link.c's warmup/pass2/loose_ends)
+// Most functions in pass2.c seem to be called internally or via the main pass2() call.
+// Functions like Putw, werror, etc. if they were not static and used by other files would go here.
+// For now, assuming they are effectively module-local to pass2.c or handled by its own internal declarations.
+
+// Global variables defined in link.c (or elsewhere) and used across modules
+extern int Nerrors;
+extern FILE *Mapp;
+extern char *Outname, *Mapname; // Symname, Bitname are char arrays defined in pass2.c
+extern char Symname[]; // Defined as char Symname[20] in pass2.c
+extern char Bitname[];// Defined as char Bitname[20] in pass2.c
+extern FILE *Outp, *Symp, *Bitp;                   // For bail_out cleanup in sup.c
+
+extern struct objfile	*File_root;
+extern struct symbol	*Sym_root;
+extern struct g_sect	*Gsect_root;
+extern WORD	Maxabs;
+extern WORD	R_counter;
+extern long	Seekoff;
+extern char	Do_410;
+extern char	Do_411;
+extern char	Do_map;
+extern char	Do_lpr_map;
+extern char	Do_bits;
+extern char	Do_kludge;
+extern char	Do_silent;
+extern char	Do_table;
+extern char	No_locals;
+extern WORD	Transadd;
+extern char	Erstring[80];
+// extern char	*Outname; // Already covered by Outname, Mapname etc. line
+extern WORD	Tex_size;
+extern WORD	Dat_size;
+extern WORD	Bss_size;
+// extern FILE	*Outp; // Already covered
+// extern char	*Mapname; // Already covered
+// extern FILE	*Mapp; // Already covered
+extern char	No_out;
