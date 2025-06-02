@@ -1,67 +1,82 @@
 # include	"link.h"
+# include	<stdlib.h>	// For exit()
+# include	<string.h>	// For sprintf(), strcmp()
+# include	<unistd.h>	// For getpid(), unlink(), execl()
+# include	<sys/stat.h>	// For chmod()
+# include	<time.h>	// For time()
+
 # define	MAXREG		8
-WORD	getword();
-char *sprintf();
+// WORD	getword(); // Declared in link.h
+// char *sprintf(); // From <string.h> or <stdio.h>
+
+// Forward declarations for functions in this file, if needed before definition
+void dump_tree(struct symbol *sym);
+void write_sym(char *sname, int flag);
+void transcode(struct objfile *obj);
+void abswrite(WORD value, WORD rbits);
+void relwrite(WORD value, WORD rbits);
+void bytewrite(char value);
+void get_rc(struct outword *wbuff, struct objfile *obj, char *psname);
+int get_bits(int attributes); // Corrected from WORD based on usage
+int get_type(int attr);       // Corrected from WORD based on usage
+void get_sym(struct outword *wbuff);
+void vreg_oper(int drctv, struct outword *wbuff);
+void do040(struct objfile *obj); // Added obj parameter based on usage
+void p_limit(struct objfile *obj, int drctv);
+void linkseek(WORD nlc, WORD nrbits);
+void dump_locals(struct objfile *obj);
+// void uerror(char *mess); // Declared in link.h
+// void lerror(char *mess); // Declared in link.h
+// void bail_out(); // Declared in link.h
+void werror(char *fname);
+void Putw(WORD x, FILE *p); // Changed from int based on usage
 
 
 /******************** variables with global scope ************************/
 
+// These are defined in link.c, so declare as extern here
+extern struct objfile	*File_root;
+extern struct symbol	*Sym_root;
+extern struct g_sect	*Gsect_root;
+extern WORD	Maxabs; // Was: WORD Maxabs;
+extern WORD	R_counter;
+extern long	Seekoff;
+extern char	Do_410;
+extern char	Do_411;
+extern char	Do_map;
+extern char	Do_lpr_map;
+extern char	Do_bits;
+extern char	Do_kludge;
+extern char	Do_silent;
+extern char	Do_table;
+extern char	No_locals;
+extern WORD	Transadd;
+extern char	Erstring[80];
+extern int	Nerrors;
+extern char	*Outname; // Was: char *Outname
+extern WORD	Tex_size; // Was: WORD Tex_size
+extern WORD	Dat_size; // Was: WORD Dat_size
+extern WORD	Bss_size; // Was: WORD Bss_size
+extern FILE	*Outp;    // Was: FILE *Outp = NULL; (initializer makes it a definition)
+extern char	*Mapname; // Was: char *Mapname
+extern FILE	*Mapp;    // Was: FILE *Mapp;
+extern char	No_out;   // Was: char No_out;
 
-extern struct objfile	*File_root;	/* root of object file link-list */
-extern struct symbol	*Sym_root;	/* root of symbol table */
-extern struct g_sect	*Gsect_root;	/* root of global psect tree */
-WORD	Maxabs;			/* maximum size of absolute files,
-					** also low limit of relocatable code */
-extern WORD	R_counter;		/* relocation counter, used in 
-					** assigning relocation constants,
-					** also high limit of relocatable
-					** code after relocation */
-extern long	Seekoff;		/* offset for seeking in out file */
-extern char	Do_410;			/* out file format boolean */
-extern char	Do_411;			/* out file format boolean */
-extern char	Do_map;			/* boolean for printing load map */
-extern char	Do_lpr_map;		/* boolean for line printing map */
-extern char	Do_bits;		/* boolean for including relocation 
-					** bits in .out file */ 
-extern char	Do_kludge;		/* boolean to write global symbols in
-					** out file table with underscore */
-extern char	Do_silent;		/* boolean for not printing zero
-					** errors message */
-extern char	Do_table;		/* boolean for including symbol table
-					** in out file */
-extern char	No_locals;		/* boolean for not including local
-					** symbols in out table */
-extern WORD	Transadd;		/* transfer address */
-int		T_counter;		/* used for assigning numbers to the
-					** global symbols so that they may be
-					** referenced in relocation bits */
-int		Glc;			/* global location counter */
-struct outword	Curr;			/* Curr.val is the current relocation
-					** constant, and Curr.rbits is the 
-					** current relocation bits */
-WORD	Tex_size;		/* for out file */
-WORD	Dat_size;		/* for out file */
-WORD	Bss_size;		/* for out file */
-char	*Outname;		/* name of out file */
-FILE		*Outp = NULL;		/* pointer for out file */
-extern char	Erstring[80];		/* buffer for error messages */
-extern int	Nerrors;		/* the number of user errors */
-FILE		*Bitp = NULL;		/* temporary file for relocation bits */
-char		Bitname[20];		/* name of temporary bit file */
-FILE		*Symp = NULL;		/* temporary file for symbol table */
-char		Symname[20];		/* name of temporary file for symbol table */
-char	*Mapname;		/* name of the map file */
-FILE	*Mapp;			/* pointer for map file */
-char	No_out;			/* boolean for no out file */
-char		Undefineds = 0;		/* boolean, set if there are any 
-					** references to undefined global 
-					** symbols in the out file */
-struct outword	Vreg[MAXREG];		/* virtual registers */
+// These seem local to pass2 or specific to its logic, so keep as definitions
+int		T_counter;
+int		Glc;
+struct outword	Curr;
+FILE		*Bitp = NULL;
+char		Bitname[20];
+FILE		*Symp = NULL;
+char		Symname[20];
+char		Undefineds = 0;
+struct outword	Vreg[MAXREG];
 
 /**************************  warmup  ****************************************/
 
 
-warmup()	/* get ready for pass 2: open out file and write header,
+void warmup()	/* get ready for pass 2: open out file and write header,
 		** open temporary file for out file
 		** symbol table and write global variables to it */
 
@@ -122,7 +137,7 @@ warmup()	/* get ready for pass 2: open out file and write header,
 /*************************  dump_tree  **************************************/
 
 
-dump_tree(sym)		/* dump the sub-tree of symbols pointed to by *sym and
+void dump_tree(sym)		/* dump the sub-tree of symbols pointed to by *sym and
 			** number its contents for future reference to
 			** undefined symbols */
 
@@ -148,7 +163,7 @@ register struct symbol	*sym;
 /**************************  write_sym  ***********************************/
 
 
-write_sym(sname, flag)	/* write the given symbol as 8 bytes (null padded)
+void write_sym(sname, flag)	/* write the given symbol as 8 bytes (null padded)
 			** in the symbol file , if flag then write the symbol
 			** with an underscore */
 register char	*sname;
@@ -173,7 +188,7 @@ register int	flag;
 /****************************  pass2  ****************************************/
 
 
-pass2()		/* translate code and write local symbols */
+void pass2()		/* translate code and write local symbols */
 
 {
 	struct objfile	*obj;	/* which object file */
@@ -192,7 +207,7 @@ pass2()		/* translate code and write local symbols */
 /************************  transcode  ****************************************/
 
 
-transcode(obj)		/* translate code */
+void transcode(obj)		/* translate code */
 
 struct objfile	*obj;		/* object file to translate code from */
 {
@@ -350,7 +365,7 @@ struct objfile	*obj;		/* object file to translate code from */
 /*************************  abswrite  *****************************************/
 
 
-abswrite(value, rbits)	/* write value in the out file */
+void abswrite(value, rbits)	/* write value in the out file */
 register WORD	value;
 register WORD	rbits;	/* relocation bits */
 {
@@ -364,7 +379,7 @@ register WORD	rbits;	/* relocation bits */
 /************************  relwrite  ****************************************/
 
 
-relwrite(value, rbits)	/* write value in out file relative to 
+void relwrite(value, rbits)	/* write value in out file relative to 
 			** global location counter */
 register WORD	value;
 register WORD	rbits;
@@ -383,7 +398,7 @@ register WORD	rbits;
 /*************************  bytewrite  *************************************/
 
 
-bytewrite(value)	/* write the byte in the out file */
+void bytewrite(value)	/* write the byte in the out file */
 	char value;
 {
 	putc(0377&value, Outp);
@@ -394,7 +409,7 @@ bytewrite(value)	/* write the byte in the out file */
 /*************************  get_rc  *****************************************/
 
 
-get_rc(wbuff, obj, psname)	/* place in wbuff the relocation constant and
+void get_rc(wbuff, obj, psname)	/* place in wbuff the relocation constant and
 				** relocation bits of psname
 				** or if psname is NULL the psect whose
 				** name is in the input stream, and whose object
@@ -435,7 +450,7 @@ register char			*psname;
 /*****************************  get_bits  **********************************/
 
 
-get_bits(attributes)	/* get the out file symbol table bits and convert
+int get_bits(attributes)	/* get the out file symbol table bits and convert  // Corrected from WORD
 			** to relocation table bits */
 
 register int 	attributes;	/* the M11 attributes of a psect */
@@ -447,7 +462,7 @@ register int 	attributes;	/* the M11 attributes of a psect */
 /*****************************  get_type  ***********************************/
 
 
-get_type(attr)		/* decode the psect type into out file symbol table
+int get_type(attr)		/* decode the psect type into out file symbol table // Corrected from WORD
 			** attribute word format */
 register int	attr;
 {
@@ -465,7 +480,7 @@ register int	attr;
 /***************************  get_sym  ***************************************/
 
 
-get_sym(wbuff)		/* get the value of the symbol in the input stream */
+void get_sym(wbuff)		/* get the value of the symbol in the input stream */
 register struct outword	*wbuff;
 
 {
@@ -529,7 +544,7 @@ register struct outword	*wbuff;
 
 /***************************  vreg_oper  *************************************/
 
-vreg_oper(drctv, wbuff)		/* preform an operation on a virtual register */
+void vreg_oper(drctv, wbuff)		/* preform an operation on a virtual register */
 
 register int		drctv;		/* directive (operation) */
 register struct outword *wbuff;		/* source value and relocation bits */
@@ -602,7 +617,7 @@ register struct outword *wbuff;		/* source value and relocation bits */
 /**************************  do040  ***************************************/
 
 
-do040(obj)	/* do 040 code directive */
+void do040(obj)	/* do 040 code directive */
 
 register struct objfile	*obj;
 {
@@ -649,7 +664,7 @@ register struct objfile	*obj;
 /*************************  p_limit  **************************************/
 
 
-p_limit(obj, drctv)	/* find the low or high limit of a psect */
+void p_limit(obj, drctv)	/* find the low or high limit of a psect */
 	struct objfile		*obj;
 	int			drctv;
 {
@@ -724,7 +739,7 @@ p_limit(obj, drctv)	/* find the low or high limit of a psect */
 /***************************  linkseek  *************************************/
 
 
-linkseek(nlc, nrbits)
+void linkseek(nlc, nrbits)
 
 register WORD nlc;	/* new location counter */
 register WORD nrbits;	/* new relocation bits */
@@ -758,7 +773,7 @@ skerr:		fprintf(stderr, "Fseek error\n");
 # define	MAXCONSTS	10
 
 
-dump_locals(obj)	/* dump local symbols */
+void dump_locals(obj)	/* dump local symbols */
 
 struct objfile	*obj;
 {
@@ -816,24 +831,24 @@ struct objfile	*obj;
 
 /************************  uerror  ******************************************/
 
-
-uerror(mess)	/* print user error message and increment Nerrors */
-
-register char	*mess;
+/*
+// void uerror(mess)	// Declared in link.h
+// register char	*mess;
 {
 	Nerrors++;
 	fprintf(stderr, "%s\n", mess);
 	if (Do_map)
 		fprintf(Mapp, "%s\n", mess);
 }
+*/
 
 
 /**************************  loose_ends  ************************************/
 
 
-loose_ends()
+void loose_ends()
 {
-	register c;
+	register int c; // Explicitly int
 	register int	nbytes;	/* number of bytes in out file symbol table */
 
 
@@ -888,7 +903,7 @@ loose_ends()
 			werror(Mapname);
 		fclose(Mapp);
 		if (Do_lpr_map)
-			execl("/usr/bin/lpr", "lpr", Mapname, 0);
+			execl("/usr/bin/lpr", "lpr", Mapname, (char *)NULL);
 	}
 
 	if (ferror(Outp))
@@ -906,9 +921,8 @@ loose_ends()
 
 /****************************  bail_out  ***********************************/
 
-
-bail_out()	/* unlink any opened output file then exit */
-
+/*
+// void bail_out()	// Declared in link.h
 {
 	if (Outp != NULL)
 		unlink(Outname);
@@ -920,12 +934,13 @@ bail_out()	/* unlink any opened output file then exit */
 		unlink(Bitname);
 	exit(1);
 }
+*/
 
 
 /********************************  werror  **********************************/
 
 
-werror(fname)		/* write error handler */
+void werror(fname)		/* write error handler */
 char	*fname;
 
 {
@@ -936,8 +951,7 @@ char	*fname;
 		unlink(Bitname);
 	exit(1);
 }
-Putw(x, p)
-	FILE *p;
+void Putw(WORD x, FILE *p) // Added void, WORD for x
 {
 	putc(x & 0377, p);
 	x >>= 8;

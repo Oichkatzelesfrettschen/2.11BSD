@@ -1,9 +1,14 @@
 /* Input functions */
 
 # include 	"link.h"
+# include	<string.h> // For strcmp
+# include	<stdlib.h> // For exit (used by inerror->bail_out)
 
 	/* define maximum size of checksum contents */
 # define	MAXSIZE		40
+
+// extern void bail_out(void); // Provided by link.h (from sup.c)
+// extern void lerror(char *mess);    // Provided by link.h (from sup.c)
 
 static char	*Fname = NULL;	/* name of current input file */
 static FILE	*Fp = NULL;	/* file pointer of current file */
@@ -18,7 +23,7 @@ static char	No_code = 0;	/* flag set if a code section was attempted to
 /***************************  ch_input  ************************************/
 
 
-ch_input(newfile, newmod)	/* change input checksum buffer contents */
+void ch_input(newfile, newmod)	/* change input checksum buffer contents */
 char	*newfile;
 int	newmod;
 
@@ -59,7 +64,7 @@ int	newmod;
 /**************************  morebytes  ************************************/
 
 
-morebytes()	/* returns 1 if there are unread bytes of the current */
+int morebytes()	/* returns 1 if there are unread bytes of the current */
 		/* checksum module type, returns 0 if not */
 {
 	register int	temptype;
@@ -86,7 +91,7 @@ morebytes()	/* returns 1 if there are unread bytes of the current */
 /******************************  getbyte  ************************************/
 
 
-getbyte()	/* return next byte of current checksum module type */
+int getbyte()	/* return next byte of current checksum module type */
 
 {
 		/* check for empty buffer, if so check if next module is */
@@ -119,7 +124,7 @@ WORD getword()	/* return next word */
 /****************************  inerror  **********************************/
 
 
-inerror(mess)	/* print error message and filename then exit. */
+void inerror(mess)	/* print error message and filename then exit. */
 		/* called when a user error has occurred concerning the */
 		/* input file */
 char 	*mess;
@@ -138,7 +143,7 @@ int	sum;	/* sum of input bytes */
 /***************************  read_mod  **************************************/
 
 
-read_mod()	/* read a checksum module and return type */
+int read_mod()	/* read a checksum module and return type */
 
 {
 	register int	i;
@@ -179,7 +184,7 @@ read_mod()	/* read a checksum module and return type */
 /*************************  getb  ***************************************/
 
 
-getb()		/* get a byte from input file, add to "sum" */
+int getb()		/* get a byte from input file, add to "sum" */
 		/* check for EOF, return the byte */
 {
 	register int	k;
