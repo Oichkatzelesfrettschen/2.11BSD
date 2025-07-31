@@ -1,13 +1,43 @@
 #include	"link.h"
+#include	<string.h> // For strcpy, strcat, strlen
+#include	<stdlib.h> // For calloc, exit
+#include	<unistd.h> // For unlink
 /* linker support functions */
 
+// External variables (Nerrors, Mapp, Outname, etc.) should be declared as extern in link.h
+// and defined in link.c (or their appropriate defining .c file).
+// Do not add extern declarations for them here in sup.c.
 
+char returnchar(unsigned short k); // Forward declaration for returnchar
+void derad50(unsigned short x, char *s); // Forward declaration for derad50
 
-char *strcpy(), *strcat();
+// char *strcpy(), *strcat(); // These are provided by <string.h>
+
+void uerror(char *mess)
+{
+	Nerrors++;
+	fprintf(stderr, "%s\n", mess);
+	if (Mapp != NULL) // Check if map file is open
+		fprintf(Mapp, "%s\n", mess);
+}
+
+void bail_out(void)
+{
+	// Minimal bail_out for sup.c, specific file unlinking might be better in pass2.c's version
+	// or pass file pointers to a more generic bail_out.
+	// This version just exits. The one in pass2.c unlinked specific temp files.
+	// If linker errors persist for Outname etc., they need to be declared extern here too.
+	if (Outname != NULL && Outp != NULL) unlink(Outname); // Example cleanup
+	if (Mapname != NULL && Mapp != NULL) unlink(Mapname);
+	if (Symname != NULL && Symp != NULL) unlink(Symname);
+	if (Bitname != NULL && Bitp != NULL) unlink(Bitname);
+	exit(1);
+}
+
 /************************  lerror  ****************************************/
 
 
-lerror(mess)	/* linker program error, print message and exit */
+void lerror(mess)	/* linker program error, print message and exit */
 register char	*mess;
 {
 	fprintf(stderr, "linker program error: %s\n", mess);
@@ -18,12 +48,12 @@ register char	*mess;
 /**************************  dc_symbol  **************************************/
 
 
-dc_symbol(s)	/* decode rad50 symbol in input stream and place in */
+void dc_symbol(s)	/* decode rad50 symbol in input stream and place in */
 		/* the buffer s. */
 register char	*s;
 
 {
-	WORD getword();
+	// WORD getword(); // Declaration is in link.h
 	
 	derad50(getword(), s);
 	derad50(getword(), s + 3);
@@ -34,7 +64,7 @@ register char	*s;
 /******************************  derad50  ************************************/
 
 
-derad50(x,s)		/* decode a word in which 3 characters are coded by */
+void derad50(x,s)		/* decode a word in which 3 characters are coded by */
 			/* the RAD50 scheme. */
 register unsigned short	x;
 register char 	*s;
@@ -51,7 +81,7 @@ register char 	*s;
 /******************************  returnchar  *******************************/
 
 
-returnchar(k)   	/* return a character according to RAD50 coding */
+char returnchar(k)   	/* return a character according to RAD50 coding */ // Added char
 			/* scheme, called by derad50 */
 register unsigned short	k;
 {
@@ -88,11 +118,11 @@ register unsigned short	k;
 /*****************************  lalloc  **************************************/
 
 
-char	*lalloc(amount)		/* storage allocator, calls calloc and if */
+char	*lalloc(amount)		/* storage allocator, calls calloc and if */ // Already char*
 				/* null is returned calls error */
 register int	amount;		/* number of bytes of storage needed */
 {
-	char *calloc();
+	// char *calloc(); // Provided by <stdlib.h>
 	register char	*temp;
 
 	if ((temp = calloc(1, (unsigned)amount)) == NULL)
@@ -109,7 +139,7 @@ register int	amount;		/* number of bytes of storage needed */
 /**********************************  tack  ***********************************/
 
 
-char	*tack(s, t)	/* catenate s with t if s does not already end with t */
+char	*tack(s, t)	/* catenate s with t if s does not already end with t */ // Already char*
 
 register char	*s;
 register char	*t;
@@ -135,7 +165,7 @@ register char	*t;
 /******************************  strip  ************************************/
 
 
-strip(s, t)	/* strip t off the end of s if it is there */
+void strip(s, t)	/* strip t off the end of s if it is there */ // Added void
 
 register char	*s;
 register char	*t;

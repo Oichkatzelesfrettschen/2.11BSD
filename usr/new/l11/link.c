@@ -1,7 +1,10 @@
 # include	"link.h"
-char *sprintf(),*strcpy(), *ctime(), *strsub(), *tack(), *lalloc();
+# include	<string.h>	// For strcpy, strcmp, strlen etc.
+# include	<stdlib.h>	// For exit, lalloc (assuming it's like malloc)
+char *ctime(), *strsub(), *tack(), *lalloc(); // Removed sprintf, strcpy
 WORD	getword();
 #include	<signal.h>
+#include	<time.h> // For ctime()
 
 /******************** variables with global scope ************************/
 
@@ -51,6 +54,7 @@ char		*Outbase;		/* out file name without '.out' */
 char		*Outname = NULL;	/* name of out file */
 char 		*Mapname;		/* name of map file */
 FILE		*Mapp = NULL;		/* pointer for map file */
+FILE		*Outp;			/* pointer for out file - uninitialized */
 char		Erstring[80];		/* buffer for error messages */
 int		Nerrors = 0;		/* the number of user errors */
 char		No_out = 0;		/* boolean for no out file */
@@ -59,10 +63,11 @@ char		Scanerr = 0;		/* boolean for error in arguments */
 /**********************  main  ********************************************/
 
 
-main(argc, argv)
+int main(argc, argv)
 int	argc;
 char	*argv[];
 {
+	Outp = NULL; // Initialize Outp here
 	scanargs(argc, argv);
 	pass1();
 	relocate();
@@ -75,13 +80,14 @@ char	*argv[];
 	warmup();
 	pass2();
 	loose_ends();
+	return Nerrors ? 1 : 0; // Return status
 }
 
 
 /*********************  scanargs  ******************************************/
 
 
-scanargs(argc, argv)
+void scanargs(argc, argv)
 int	argc;
 char	*argv[];
 {
@@ -192,7 +198,7 @@ register char	*t;
 /****************************  outnames  ************************************/
 
 
-outnames()	/* determine names of output files */
+void outnames()	/* determine names of output files */
 
 {
 	if (Outname == NULL)
@@ -282,7 +288,7 @@ struct g_sect	*new_gsect()
 /*********************  pass1  *********************************************/
 
 
-pass1()
+void pass1()
 
 {
 	char			name[7];	/* string from M11 */
@@ -411,7 +417,7 @@ pass1()
 /*****************************  place_global  ******************************/
 
 
-place_global(ps)		/* try to place the given program section
+void place_global(ps)		/* try to place the given program section
 				** in proper ins - dat - bss link-list by
 				** finding it in the global psect tree. if 
 				** it is not there then add to tree and place
@@ -457,11 +463,11 @@ register struct psect	*ps;
 /*************************  place_local  *******************************/
 
 
-place_local(ps)			/* place psect at end of its UNIX section
+void place_local(ps)			/* place psect at end of its UNIX section
 				** type link-list */
 register struct psect	*ps;
 {
-	register type = ps->type;
+	register char type = ps->type; // Explicitly char
 	
 	if( !(type & REL))		/* asect */
 	{
@@ -503,9 +509,9 @@ register struct psect	*ps;
 /*************************  table  **************************************/
 
 
-table(root, new)	/* place new symbol structure in symbol table tree */
+void table(root, new)	/* place new symbol structure in symbol table tree */
 
-register struct symbol	*root[];	/* pointer to root pointer of tree */
+register struct symbol	**root;	/* pointer to root pointer of tree - Corrected: was *root[] */
 register struct symbol	*new;		/* pointer to symbol (structure) to
 					** be added */
 {
@@ -560,7 +566,7 @@ register struct symbol	*new;		/* pointer to symbol (structure) to
 # define	_8K	020000
 
 
-relocate()	/* assign relocation constants for all relocatable psects */
+void relocate()	/* assign relocation constants for all relocatable psects */
 
 {
 	register unsigned temp;
@@ -617,7 +623,7 @@ relocate()	/* assign relocation constants for all relocatable psects */
 
 
 
-asgn_rcs(p)	/* assign relocation constants to
+void asgn_rcs(p)	/* assign relocation constants to
 		** the psects pointed to.  this routine uses the
 		** variable R_counter which contains the address of the 
 		** next available space in memory */
@@ -691,7 +697,7 @@ register struct psect 	*p;	/* called with ins-dat-bss root */
 /*************************  relsyms  **************************************/
 
 
-relsyms(sym)		/* relocate global symbols */
+void relsyms(sym)		/* relocate global symbols */
 
 register struct symbol	*sym;	
 {
@@ -706,11 +712,11 @@ register struct symbol	*sym;
 /*************************  printmap  ***********************************/
 
 
-printmap()
+void printmap()
 {
 	register struct objfile	*op;
 	register struct psect 	*pp;
-	int			tvec[2];	/* time vector */
+	time_t		tvec;		/* time_t for time() */
 	static char		dashes[] = "----------------";
 
 	Mapp = fopen(Mapname, "w");
@@ -723,8 +729,8 @@ printmap()
 		if(Do_411) datstart = 0L;
 		
 		/* print map header */
-		time(tvec);
-		fprintf(Mapp, "%s    Linker-11 version 22may79    %s\n", Outname, ctime(tvec));
+		time(&tvec); // Pass address of tvec
+		fprintf(Mapp, "%s    Linker-11 version 22may79    %s\n", Outname, ctime(&tvec)); // Pass address of tvec
 		fprintf(Mapp, "Magic number:     %o\t",
 				Do_410 ? 0410 : ( Do_411 ? 0411 : 0407) );
 		if(Do_410) fprintf(Mapp, "(Shared text)\n");
@@ -761,17 +767,17 @@ printmap()
 	}
 }
 
-brag(s, start, size, tag)
+void brag(s, start, size, tag) // Matched void from link.h
 	char *s;
 	long start, size;
 	char *tag;
 {
 	long stop = 0177777 & (size + start);
 
-	fprintf(Mapp, "%s:\t%06O\t%06O\t%06O\t%s\n", s, start, stop, size, tag);
+	fprintf(Mapp, "%s:\t%06lo\t%06lo\t%06lo\t%s\n", s, start, stop, size, tag); // Used %lo for long octal
 }
 
-prattr(x)
+void prattr(int x) // Added int for x
 {
 	fprintf(Mapp, "\t");
 	attr(x&SHR, "shr, ", "prv, ");
@@ -782,17 +788,16 @@ prattr(x)
 	attr(x&OVR,"ovr, ", "con, ");
 	attr(x&GBL,"gbl", "loc");
 }
-attr(x, s, t)
-	register x;
-	register char *s, *t;
+void attr(int x, char *s, char *t) // ANSI C style parameters
 {
+	// Use parameters directly
 	if(x) fprintf(Mapp, s);
 	else  fprintf(Mapp, t);
 }
 /*****************************  dump_symlist  *******************************/
 
 
-dump_symlist(sym)	/* write to the map file the symbol list for a psect */
+void dump_symlist(sym)	/* write to the map file the symbol list for a psect */
 register struct symbol	*sym;
 {
 	register int	i;
@@ -810,7 +815,7 @@ register struct symbol	*sym;
 /*****************************  dump_undefs  *******************************/
 
 
-dump_undefs(sym, n)	/* dump into map file all undefined global symbols */
+int dump_undefs(sym, n)	/* dump into map file all undefined global symbols */ // Return type int
 struct symbol	*sym;
 int		n;
 {
@@ -830,20 +835,21 @@ int		n;
 /**************************  post_bail  *************************************/
 
 
-post_bail()	/* set interrupt routine to bail_out */
+void post_bail()	/* set interrupt routine to bail_out */
 
 {
-	extern	bail_out();
+	// extern	bail_out(); // Declaration is in link.h
 
 	sigx(1);
 	sigx(2);
 	sigx(3);
 	sigx(15);
 }
-sigx(n)
+void sigx(n) // Added void
+int n; // Added type for n
 {
-	extern	bail_out();
+	// extern	bail_out(); // Declaration is in link.h
 
 	if(signal(n, SIG_IGN) != SIG_IGN)
-		signal(n, bail_out);
+		signal(n, (void (*)(int))bail_out); // Cast bail_out to sighandler_t
 }
